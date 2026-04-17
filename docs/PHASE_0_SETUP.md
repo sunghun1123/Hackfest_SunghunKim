@@ -6,7 +6,7 @@ Execution-oriented setup guide for the local development environment of **Broken
 
 - **Goal:** bring the local machine to a state where Phase 1 (backend scaffolding) can start immediately.
 - **Estimated time:** 20–40 minutes.
-- **Environment assumed:** Windows 11, PowerShell, Docker Desktop running, Python 3.11+ installed, Git installed.
+- **Environment assumed:** Windows 11, PowerShell, Python 3.11+ installed, Git installed, PostgreSQL 16 available either as a native Windows service OR via Docker Desktop.
 - **Deferred to later phase:** DigitalOcean account, Managed PostgreSQL, Spaces bucket, Android Studio / SDK. These are NOT required for Phase 0.
 
 Prerequisite checklist:
@@ -14,8 +14,8 @@ Prerequisite checklist:
 - [ ] Google Cloud project with billing enabled
 - [ ] Google Places API (New) enabled
 - [ ] Gemini API key from Google AI Studio
-- [ ] Docker Desktop running (`docker ps` works)
-- [ ] Python 3.11+ installed (`py -3.11 --version` works)
+- [ ] PostgreSQL 16 available (native Windows service `postgresql-x64-16`, or Docker)
+- [ ] Python 3.11+ installed
 
 ---
 
@@ -25,16 +25,16 @@ Confirm all baseline tools are present and at acceptable versions.
 
 **Commands (PowerShell):**
 ```powershell
-py -3.11 --version
-docker --version
-docker ps
+python --version                           # 3.11+ required
 git --version
+Get-Service postgresql-x64-16 | Select-Object Name, Status    # native PG (preferred)
+docker --version                           # optional fallback
 ```
 
-**Verify:** Python ≥ 3.11, Docker Engine responding (no error on `docker ps`), Git any recent version.
+**Verify:** Python ≥ 3.11, Git present, PostgreSQL 16 service shows `Running` — OR Docker Desktop is up so a PostGIS container can be launched in Step 6.
 
-If Python 3.11 is missing: install from https://www.python.org/downloads/ (check "Add to PATH").
-If Docker is not running: open Docker Desktop and wait until the whale icon is steady.
+If Python is missing: install from https://www.python.org/downloads/ (check "Add to PATH").
+If neither PG 16 service nor Docker is available: install PostgreSQL 16 + PostGIS via the EnterpriseDB installer (StackBuilder → PostGIS 3.4).
 
 ---
 
@@ -123,11 +123,18 @@ If `API_KEY_INVALID` → regenerate at https://aistudio.google.com/apikey.
 
 ---
 
-## Step 6 — Launch Local PostGIS Container
+## Step 6 — Ensure PostgreSQL 16 Is Running
 
-Start PostgreSQL 16 with PostGIS 3.4 via Docker.
+**Option A — Native Windows service (preferred if already installed):**
+```powershell
+Get-Service postgresql-x64-16 | Select-Object Name, Status, StartType
+& 'C:\Program Files\PostgreSQL\16\bin\pg_isready.exe' -h localhost -p 5432 -U postgres
+```
+Must show `Status: Running` and `pg_isready` must exit 0.
 
-**Command:**
+The `postgres` superuser password is whatever was chosen during install; store it in `.env` as part of `DATABASE_URL`.
+
+**Option B — Docker (use if no native install):**
 ```powershell
 docker run -d `
   --name broken-lunch-db `
@@ -137,36 +144,32 @@ docker run -d `
   -p 5432:5432 `
   -v broken_lunch_pgdata:/var/lib/postgresql/data `
   postgis/postgis:16-3.4
-```
-
-**Verify:**
-```powershell
-docker ps --filter name=broken-lunch-db --format "{{.Status}}"
-```
-Must show `Up ...` (not `Restarting`, not empty).
-
-Wait ~10 seconds for the DB to finish initializing, then:
-```powershell
 docker exec broken-lunch-db pg_isready -U postgres
 ```
-Expect `accepting connections`.
+
+**Verify (either option):** connecting to `localhost:5432` as `postgres` succeeds.
 
 ---
 
-## Step 7 — Enable PostGIS Extension
+## Step 7 — Create `broken_lunch` Database & Enable PostGIS
 
-PostgreSQL is running; now enable the PostGIS extension inside the `broken_lunch` database.
-
-**Command:**
+**Native install:**
 ```powershell
-docker exec -it broken-lunch-db psql -U postgres -d broken_lunch -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+$env:PGPASSWORD = "<your-postgres-password>"
+& 'C:\Program Files\PostgreSQL\16\bin\psql.exe' -h localhost -p 5432 -U postgres -d postgres -c "CREATE DATABASE broken_lunch;"
+& 'C:\Program Files\PostgreSQL\16\bin\psql.exe' -h localhost -p 5432 -U postgres -d broken_lunch -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+```
+
+**Docker:**
+```powershell
+docker exec broken-lunch-db psql -U postgres -d broken_lunch -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 ```
 
 **Verify:**
 ```powershell
-docker exec -it broken-lunch-db psql -U postgres -d broken_lunch -c "SELECT PostGIS_Version();"
+& 'C:\Program Files\PostgreSQL\16\bin\psql.exe' -h localhost -p 5432 -U postgres -d broken_lunch -c "SELECT PostGIS_Version();"
 ```
-Must print a version line (e.g. `3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1`).
+Must print a version line like `3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1`.
 
 ---
 
@@ -174,9 +177,9 @@ Must print a version line (e.g. `3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1`).
 
 Create and activate the venv that Phase 1 will populate.
 
-**Commands:**
+**Commands (use `py -3.11` if available; `python` works for 3.11+):**
 ```powershell
-py -3.11 -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install "httpx>=0.27" "psycopg[binary]>=3.1" "python-dotenv>=1.0"

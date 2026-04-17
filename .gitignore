@@ -1,0 +1,28 @@
+# Secrets / local env
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Databases / dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build / cache
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
