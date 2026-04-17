@@ -44,21 +44,22 @@ PLACES_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
 PLACES_NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-FIELD_MASK = ",".join(
-    [
-        "places.id",
-        "places.displayName",
-        "places.formattedAddress",
-        "places.location",
-        "places.nationalPhoneNumber",
-        "places.websiteUri",
-        "places.rating",
-        "places.priceLevel",
-        "places.regularOpeningHours",
-        "places.types",
-        "nextPageToken",
-    ]
-)
+_PLACE_FIELDS = [
+    "places.id",
+    "places.displayName",
+    "places.formattedAddress",
+    "places.location",
+    "places.nationalPhoneNumber",
+    "places.websiteUri",
+    "places.rating",
+    "places.priceLevel",
+    "places.regularOpeningHours",
+    "places.types",
+]
+# searchText supports response-level nextPageToken in the FieldMask;
+# searchNearby rejects it (and doesn't paginate anyway — max 20 per call).
+FIELD_MASK_TEXT = ",".join([*_PLACE_FIELDS, "nextPageToken"])
+FIELD_MASK_NEARBY = ",".join(_PLACE_FIELDS)
 
 CATEGORIES = [
     "pizza", "mexican", "asian", "burger", "sandwich",
@@ -176,11 +177,13 @@ class Stats:
     ),
     reraise=True,
 )
-async def _post_places(client: httpx.AsyncClient, url: str, body: dict[str, Any]) -> dict[str, Any]:
+async def _post_places(
+    client: httpx.AsyncClient, url: str, body: dict[str, Any], field_mask: str
+) -> dict[str, Any]:
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": settings.google_places_api_key,
-        "X-Goog-FieldMask": FIELD_MASK,
+        "X-Goog-FieldMask": field_mask,
     }
     resp = await client.post(url, headers=headers, json=body, timeout=30.0)
     if resp.status_code in (429, 500, 502, 503, 504):
@@ -246,7 +249,7 @@ async def paginate_text_search(
         if page_token:
             body["pageToken"] = page_token
         try:
-            data = await _post_places(client, PLACES_TEXT_URL, body)
+            data = await _post_places(client, PLACES_TEXT_URL, body, FIELD_MASK_TEXT)
             stats.text_calls += 1
         except Exception as e:
             stats.errors += 1
@@ -261,7 +264,7 @@ async def paginate_text_search(
         await asyncio.sleep(PAGE_TOKEN_DELAY_S)
 
 
-async def paginate_nearby_search(
+async def nearby_search(
     client: httpx.AsyncClient,
     lat: float,
     lng: float,
@@ -269,34 +272,28 @@ async def paginate_nearby_search(
     on_page: OnPage,
     stats: Stats,
 ) -> None:
-    page_token: str | None = None
-    for page in range(MAX_PAGES):
-        body: dict[str, Any] = {
-            "includedTypes": ["restaurant"],
-            "maxResultCount": 20,
-            "locationRestriction": {
-                "circle": {
-                    "center": {"latitude": lat, "longitude": lng},
-                    "radius": NEARBY_RADIUS_M,
-                }
-            },
-        }
-        if page_token:
-            body["pageToken"] = page_token
-        try:
-            data = await _post_places(client, PLACES_NEARBY_URL, body)
-            stats.nearby_calls += 1
-        except Exception as e:
-            stats.errors += 1
-            print(f"[nearby] ({lat:.3f},{lng:.3f}) page {page + 1} failed: {e}", flush=True)
-            return
-        places = data.get("places") or []
-        if places:
-            await on_page(places)
-        page_token = data.get("nextPageToken")
-        if not page_token:
-            return
-        await asyncio.sleep(PAGE_TOKEN_DELAY_S)
+    # Places API (New) SearchNearby returns up to 20 results per call and does
+    # not support pagination, so a single request is all we can do per point.
+    body: dict[str, Any] = {
+        "includedTypes": ["restaurant"],
+        "maxResultCount": 20,
+        "locationRestriction": {
+            "circle": {
+                "center": {"latitude": lat, "longitude": lng},
+                "radius": NEARBY_RADIUS_M,
+            }
+        },
+    }
+    try:
+        data = await _post_places(client, PLACES_NEARBY_URL, body, FIELD_MASK_NEARBY)
+        stats.nearby_calls += 1
+    except Exception as e:
+        stats.errors += 1
+        print(f"[nearby] ({lat:.3f},{lng:.3f}) failed: {e}", flush=True)
+        return
+    places = data.get("places") or []
+    if places:
+        await on_page(places)
 
 
 def dedup_osm(
@@ -372,14 +369,15 @@ async def run(args: argparse.Namespace) -> None:
     async def worker_nearby(client: httpx.AsyncClient, lat: float, lng: float) -> None:
         async with semaphore:
             print(f"[nearby] ({lat:.4f},{lng:.4f})", flush=True)
-            await paginate_nearby_search(client, lat, lng, on_page=on_page, stats=stats)
+            await nearby_search(client, lat, lng, on_page=on_page, stats=stats)
 
     timeout = httpx.Timeout(30.0, connect=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         tasks: list[asyncio.Task[None]] = []
-        for c in CATEGORIES:
-            for region in REGIONS:
-                tasks.append(asyncio.create_task(worker_text(client, f"{c} in {region}")))
+        if not args.grid_only:
+            for c in CATEGORIES:
+                for region in REGIONS:
+                    tasks.append(asyncio.create_task(worker_text(client, f"{c} in {region}")))
         if not args.categories_only:
             for la in GRID_LATS:
                 for ln in GRID_LNGS:
@@ -393,7 +391,12 @@ async def run(args: argparse.Namespace) -> None:
         else:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-        if not args.categories_only and not args.dry_run and args.max_queries is None:
+        if (
+            not args.categories_only
+            and not args.grid_only
+            and not args.dry_run
+            and args.max_queries is None
+        ):
             print("[osm] fetching OpenStreetMap via Overpass...", flush=True)
             try:
                 elements = await fetch_osm(client)
@@ -481,6 +484,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--dry-run", action="store_true", help="Fetch but do not write to DB")
     p.add_argument("--fresh", action="store_true", help="TRUNCATE restaurants CASCADE first")
     p.add_argument("--categories-only", action="store_true", help="Skip nearby grid and OSM")
+    p.add_argument("--grid-only", action="store_true", help="Run only nearby grid (skip text + OSM)")
     p.add_argument(
         "--max-queries",
         type=int,

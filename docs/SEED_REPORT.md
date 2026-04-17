@@ -1,62 +1,69 @@
 # Seed Report — Task 1.3 (Grand Rapids restaurants)
 
-_Generated 2026-04-17 23:02 UTC_
+_Generated 2026-04-17 23:02 UTC · Updated 2026-04-17 after Nearby-Search fix_
 
 ## 1. Totals
 
 | Metric | Value |
 | --- | ---: |
-| Total restaurants | **1000** (post-cleanup; was 1003) |
-| From Google Places | 859 |
+| Total restaurants | **1125** |
+| From Google Places | 984 |
 | From OpenStreetMap (OSM) | 141 |
-| With website | 819 |
-| With phone | 861 |
-| With opening hours | 1003 |
-| With Google rating | 852 |
+| With website | 942 |
+| With phone | 981 |
+| With opening hours | 1125 |
+| With Google rating | 973 |
 
-Target was 1500–2500. Actual **1003** is below target because Nearby 
-Search grid returned **400 Bad Request on every call** — see §6 for the bug 
-and re-run options.
+Target was 1500–2500. Actual **1125** after both text-search and nearby-grid
+runs. Falls short of the lower target because the 20 grid points returned
+only 125 *new* places — the rest (~275) were duplicates of what the 45
+text-search queries already captured. This is expected when a small urban
+area gets saturated by category × region queries.
 
 ## 2. Top 15 Categories
 
 | # | Category | Count |
 | --: | --- | ---: |
-| 1 | (null) | 82 |
-| 2 | mexican_restaurant | 74 |
-| 3 | coffee_shop | 69 |
-| 4 | pizza_restaurant | 66 |
+| 1 | (null) | 84 |
+| 2 | mexican_restaurant | 80 |
+| 3 | coffee_shop | 78 |
+| 4 | pizza_restaurant | 78 |
 | 5 | bakery | 57 |
-| 6 | chinese_restaurant | 41 |
-| 7 | sandwich_shop | 38 |
-| 8 | fast_food_restaurant | 27 |
-| 9 | american_restaurant | 23 |
-| 10 | breakfast_restaurant | 23 |
-| 11 | chicken_restaurant | 22 |
-| 12 | cafe | 20 |
-| 13 | hamburger_restaurant | 19 |
-| 14 | pizza | 19 |
-| 15 | sushi_restaurant | 17 |
+| 6 | fast_food_restaurant | 52 |
+| 7 | sandwich_shop | 43 |
+| 8 | chinese_restaurant | 41 |
+| 9 | american_restaurant | 27 |
+| 10 | breakfast_restaurant | 26 |
+| 11 | chicken_restaurant | 24 |
+| 12 | hamburger_restaurant | 22 |
+| 13 | cafe | 22 |
+| 14 | italian_restaurant | 19 |
+| 15 | pizza | 19 |
+
+**Note on `(null)` (84 rows):** these are mostly OSM rows without a
+`cuisine` tag, or Places rows whose only `types` entries were the generic
+`restaurant / food / point_of_interest / establishment` we filter out.
+Acceptable for the hackathon — Task 1.4 will infer cuisine from menu.
 
 ## 3. Region Distribution
 
-Each restaurant assigned to its nearest region center (Haversine).
+Each restaurant assigned to its nearest region center (PostGIS `ST_DistanceSphere`).
 
 | Region | Center (lat, lng) | Count | Share |
 | --- | --- | ---: | ---: |
-| Grand Rapids | 42.9634, -85.6681 | 438 | 43.7% |
-| Kentwood | 42.8687, -85.6447 | 335 | 33.4% |
-| Wyoming MI | 42.9133, -85.7053 | 230 | 22.9% |
+| Grand Rapids | 42.9634, -85.6681 | 529 | 47.0% |
+| Kentwood | 42.8687, -85.6447 | 346 | 30.8% |
+| Wyoming MI | 42.9133, -85.7053 | 250 | 22.2% |
 
 ## 4. Bounding Box
 
-- **lat:** `[42.80801, 43.11941]` _(post-cleanup)_
-- **lng:** `[-85.87068, -85.33880]` _(post-cleanup)_
+- **lat:** `[42.80801, 43.11941]`
+- **lng:** `[-85.87068, -85.33880]`
 
-Distance-from-GR-center percentiles (miles):
-- p50: 4.62mi  ·  p90: 7.76mi  ·  p95: 8.46mi
+Distance-from-GR-center percentiles (miles): p50 ≈ 4.6mi · p90 ≈ 7.8mi · p95 ≈ 8.5mi.
+Every row is within 25mi of the GR center (outlier cleanup applied — see §5).
 
-## 5. Outliers (> 20mi from GR center) — 3 rows _(now deleted)_
+## 5. Outliers (> 20mi from GR center) — ~~3 rows~~ _(deleted)_
 
 | Name | Distance (mi) | Category | Source | Lat | Lng |
 | --- | ---: | --- | --- | ---: | ---: |
@@ -64,41 +71,59 @@ Distance-from-GR-center percentiles (miles):
 | Burger Mix and pizza | 134.6 | hamburger_restaurant | places | 42.3432 | -83.1576 |
 | Deli Plaza Delicatessen | 132.6 | deli | places | 42.4261 | -83.1611 |
 
-**Likely cause:** Places Text Search for `"<category> in Wyoming MI"` 
-sometimes matched the *state* of Wyoming. OSM also pulled a handful of 
-places just outside the bbox because of floating point.
+**Cause:** Places Text Search for `"<category> in Wyoming MI"` sometimes
+matched the *state* of Wyoming. Two Detroit-area rows were probably
+`"<category> in Grand Rapids MI"` accidentally matching the greater
+Michigan area.
 
-**Cleanup applied:** `DELETE FROM restaurants WHERE ST_DistanceSphere(...) > 25*1609.34;`
-removed the 3 outliers. Post-cleanup bbox tightens to lat [42.808, 43.119],
-lng [-85.871, -85.339], which is the correct Grand Rapids metro area.
+**Cleanup applied:**
+```sql
+DELETE FROM restaurants
+WHERE ST_DistanceSphere(ST_MakePoint(lng,lat), ST_MakePoint(-85.6681, 42.9634))
+      > 25 * 1609.34;
+-- 3 rows removed (commit 587aae7)
+```
 
-## 6. Nearby-Search 400 Error
+The grid-only re-run added no new outliers.
 
-All 20 grid points of `places:searchNearby` returned `400 Bad Request`.
-After 5 tenacity retries each, nearby-search contributed **0 restaurants**.
+## 6. Nearby-Search 400 Error — **fixed**
 
-Hypotheses to investigate before re-running:
-1. The `FieldMask` includes `nextPageToken`, which is valid for `searchText` 
-   but may not be accepted by `searchNearby` in Places API (New).
-2. Request body may need `regionCode: "us"` or `languageCode: "en"` for 
-   the Nearby endpoint.
-3. `radius` should possibly be int, not float `2000.0`.
+All 20 grid points of `places:searchNearby` returned `400 Bad Request` on the
+first pass. Root cause confirmed via direct request with response body logged:
 
-Next debug step: `curl` one grid point directly with minimal field mask 
-and capture the error body (which our current code throws away inside 
-tenacity). I kept grid collection out of the first run so the fix can be 
-isolated; text search + OSM already gave us 1003 places.
+> `Invalid field: places.id,places.displayName,...,nextPageToken`
+
+`searchNearby` does not accept `nextPageToken` in the `X-Goog-FieldMask` header
+(unlike `searchText`). It also does not support pagination at all — max 20
+results per call.
+
+**Fix:** split the field mask per endpoint; drop the nearby pagination loop.
+
+```python
+_PLACE_FIELDS = ["places.id", "places.displayName", ...]
+FIELD_MASK_TEXT   = ",".join([*_PLACE_FIELDS, "nextPageToken"])
+FIELD_MASK_NEARBY = ",".join(_PLACE_FIELDS)
+```
+
+Grid re-run: 20 calls, 0 errors, **125 new places** inserted (the rest were
+already captured by text search).
 
 ## 7. API Cost
 
-- Billable Places calls (text search only): **114** × $32 / 1000 = **$3.65**
-- Nearby calls (all 400'd before billing): 20 × $0 = $0
-- OSM (Overpass): free
-- Well inside the Google $200 free monthly credit.
+| Stage | Calls | Cost |
+| --- | ---: | ---: |
+| Text Search (first run) | 114 | $3.65 |
+| Nearby Search (first run, 400'd) | 0 billable | $0.00 |
+| Nearby Search (re-run, 200 OK) | 20 | $0.64 |
+| OSM Overpass | 1 | free |
+| **Total** | **134** | **$4.29** |
+
+Well inside the $200 monthly Places API free credit.
 
 ## 8. Next-Step Candidates (Task 1.4 preview)
 
-- 822 restaurants have a website → candidates for crawler + Gemini parse.
-- That's 82% of the full set — excellent yield.
-
-- After outlier cleanup the crawl pool should drop by <5%.
+- **942** restaurants have a website → crawler + Gemini parse candidates.
+- That's 83.7% of the full set — very strong yield.
+- OSM-sourced rows (141) typically lack website/phone/rating/hours — they
+  may need a manual / Places-details second pass before being crawlable,
+  or we simply skip them in Task 1.4 and come back later.
