@@ -1,11 +1,11 @@
-"""Phase 0 smoke test — verifies DB (PostGIS), Google Places, and Gemini from .env."""
+"""Phase 0 smoke test — verifies DB (PostGIS), Google Places, and Gemini from backend/.env."""
 import os
-import sys
+from pathlib import Path
 import httpx
 import psycopg
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / "backend" / ".env")
 
 DB = os.environ["DATABASE_URL"].replace("postgresql+asyncpg", "postgresql")
 PLACES = os.environ["GOOGLE_PLACES_API_KEY"]
