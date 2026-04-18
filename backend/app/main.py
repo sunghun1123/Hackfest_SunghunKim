@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import engine, get_db
-from app.routers import restaurants, submissions
+from app.routers import confirmations, restaurants, submissions
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.add_middleware(
 
 app.include_router(restaurants.router)
 app.include_router(submissions.router)
+app.include_router(confirmations.router)
 
 
 @app.get("/health")

@@ -89,6 +89,29 @@ async def test_restaurant(db_session):
 
 
 @pytest_asyncio.fixture
+async def test_menu_item(db_session, test_restaurant):
+    """A throwaway ai_parsed menu_item inside `test_restaurant`. Cleanup is
+    handled by restaurant-level CASCADE."""
+    from sqlalchemy import text
+
+    row = (
+        await db_session.execute(
+            text(
+                """
+                INSERT INTO menu_items
+                    (restaurant_id, name, price_cents, source, verification_status)
+                VALUES (:rid, 'Test Item', 700, 'seed', 'ai_parsed')
+                RETURNING id
+                """
+            ),
+            {"rid": test_restaurant},
+        )
+    ).one()
+    await db_session.commit()
+    yield row.id
+
+
+@pytest_asyncio.fixture
 async def test_device(db_session):
     """A fresh device_id per test. Cleanup removes point_history,
     submissions, confirmations, ratings, reports, then the device itself."""
