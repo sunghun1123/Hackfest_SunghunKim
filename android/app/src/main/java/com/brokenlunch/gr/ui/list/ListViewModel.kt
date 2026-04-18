@@ -26,6 +26,17 @@ import javax.inject.Inject
 
 enum class SortMode { DISTANCE, PRICE }
 
+private val SIDE_KEYWORDS = listOf(
+    "butter", "sauce", "extra", "topping", "dressing", "syrup",
+    "add-on", "add on", "side of", "cream", "spice", "salt",
+    "ranch", "ketchup", "mayo", "sprinkles", "chips only",
+)
+
+private fun looksLikeSide(name: String): Boolean {
+    val lower = name.lowercase()
+    return SIDE_KEYWORDS.any { lower.contains(it) }
+}
+
 data class ListSection(
     val id: String,
     val title: String,
@@ -118,7 +129,11 @@ class ListViewModel @Inject constructor(
     private fun rebuildSections(all: List<RestaurantNearby>) {
         val sort = _state.value.sortMode
         val byTier: Map<Tier, List<RestaurantNearby>> = all
-            .filter { it.menuStatus != MenuStatus.EMPTY && it.cheapestMenu != null }
+            .filter {
+                it.menuStatus != MenuStatus.EMPTY &&
+                    it.cheapestMenu != null &&
+                    !looksLikeSide(it.cheapestMenu.name)
+            }
             .groupBy { it.cheapestMenu!!.tier }
             .mapValues { (_, list) -> sortRestaurants(list, sort) }
 
@@ -126,13 +141,13 @@ class ListViewModel @Inject constructor(
 
         val sections = buildList {
             byTier[Tier.SURVIVE]?.takeIf { it.isNotEmpty() }?.let {
-                add(ListSection("survive", "Survive", "$0 - $5 · eat to live", it, Tier.SURVIVE))
+                add(ListSection("survive", "Survive", "$0-$5 · eat to live", it, Tier.SURVIVE))
             }
             byTier[Tier.COST_EFFECTIVE]?.takeIf { it.isNotEmpty() }?.let {
-                add(ListSection("cost_effective", "Cost-effective", "$5 - $10 · solid meal", it, Tier.COST_EFFECTIVE))
+                add(ListSection("cost_effective", "Cost-effective", "$5-$10 · solid meal", it, Tier.COST_EFFECTIVE))
             }
             byTier[Tier.LUXURY]?.takeIf { it.isNotEmpty() }?.let {
-                add(ListSection("luxury", "Luxury", "$10 - $15 · treat yourself", it, Tier.LUXURY))
+                add(ListSection("luxury", "Luxury", "$10-$15 · treat yourself", it, Tier.LUXURY))
             }
             if (emptyList.isNotEmpty()) {
                 add(ListSection("help", "Help us!", "menus missing nearby · be the first", emptyList, null))

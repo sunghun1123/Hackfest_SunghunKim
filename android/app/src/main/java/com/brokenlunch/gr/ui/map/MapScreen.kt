@@ -289,19 +289,19 @@ private fun FilterRow(
         modifier = modifier,
     ) {
         TierChip(
-            label = "Survive",
+            label = "Survive ≤$5",
             selected = Tier.SURVIVE in selected,
             bg = SurviveBg, border = SurviveBorder, text = SurviveText,
             onClick = { onToggle(Tier.SURVIVE) },
         )
         TierChip(
-            label = "Cost-effective",
+            label = "Cost-effective $5-10",
             selected = Tier.COST_EFFECTIVE in selected,
             bg = CostBg, border = CostBorder, text = CostText,
             onClick = { onToggle(Tier.COST_EFFECTIVE) },
         )
         TierChip(
-            label = "Luxury",
+            label = "Luxury $10-15",
             selected = Tier.LUXURY in selected,
             bg = LuxuryBg, border = LuxuryBorder, text = LuxuryText,
             onClick = { onToggle(Tier.LUXURY) },
