@@ -37,3 +37,7 @@ class RateLimiter:
 
 # Photo parsing: 5 requests / minute / device (API.md §/parse-menu-image).
 photo_parse_limiter = RateLimiter(max_calls=5, window_seconds=60.0)
+
+# Reports: 10 per rolling 24h / device (abuse guard — reports nuke menu rows
+# at 3+ via the auto_dispute trigger, so spam here is expensive).
+reports_limiter = RateLimiter(max_calls=10, window_seconds=86_400.0)

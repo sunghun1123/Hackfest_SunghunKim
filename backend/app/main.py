@@ -7,7 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import engine, get_db
-from app.routers import confirmations, gemini, restaurants, submissions
+from app.routers import (
+    confirmations,
+    gemini,
+    me,
+    ratings,
+    reports,
+    restaurants,
+    submissions,
+)
 
 
 @asynccontextmanager
@@ -40,6 +48,9 @@ app.include_router(restaurants.router)
 app.include_router(submissions.router)
 app.include_router(confirmations.router)
 app.include_router(gemini.router)
+app.include_router(ratings.router)
+app.include_router(reports.router)
+app.include_router(me.router)
 
 
 @app.get("/health")
