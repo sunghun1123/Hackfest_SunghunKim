@@ -151,7 +151,7 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Broke People's Food Map", fontWeight = FontWeight.Medium) },
+                title = { Text("Eat Cheaper", fontWeight = FontWeight.Medium) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
