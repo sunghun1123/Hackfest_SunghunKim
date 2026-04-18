@@ -1,14 +1,14 @@
 package com.brokenlunch.gr.ui.submit
 
-import android.Manifest
-import android.content.pm.PackageManager
+import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -37,9 +37,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,27 +52,21 @@ fun SubmitScreen(
     val ctx = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
 
-    var cameraPermissionAsked by remember { mutableStateOf(false) }
-    var cameraPermissionDenied by remember { mutableStateOf(false) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var launcherActive by remember { mutableStateOf(false) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        cameraPermissionAsked = true
-        cameraPermissionDenied = !granted
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        launcherActive = false
+        if (success) tempCameraUri?.let(vm::onImageSelected)
     }
 
-    LaunchedEffect(state.stage) {
-        if (state.stage == SubmitStage.CAMERA_OPEN && !cameraPermissionAsked) {
-            val granted = ContextCompat.checkSelfPermission(
-                ctx, Manifest.permission.CAMERA,
-            ) == PackageManager.PERMISSION_GRANTED
-            if (granted) {
-                cameraPermissionAsked = true
-            } else {
-                permissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        launcherActive = false
+        uri?.let(vm::onImageSelected)
     }
 
     LaunchedEffect(state.error) {
@@ -85,31 +80,29 @@ fun SubmitScreen(
 
     Scaffold(
         topBar = {
-            if (state.stage != SubmitStage.CAMERA_OPEN) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            when (state.stage) {
-                                SubmitStage.SELECTING_RESTAURANT -> "Add menu item"
-                                SubmitStage.PARSING -> "Reading menu…"
-                                SubmitStage.EDITING -> "Review items"
-                                SubmitStage.SUBMITTING -> "Submitting…"
-                                SubmitStage.DONE -> "Done"
-                                SubmitStage.CAMERA_OPEN -> ""
-                            },
-                            fontWeight = FontWeight.Medium,
+            TopAppBar(
+                title = {
+                    Text(
+                        when (state.stage) {
+                            SubmitStage.SELECTING_RESTAURANT -> "Add menu item"
+                            SubmitStage.CAMERA_OPEN -> "Add menu photo"
+                            SubmitStage.PARSING -> "Reading menu…"
+                            SubmitStage.EDITING -> "Review items"
+                            SubmitStage.SUBMITTING -> "Submitting…"
+                            SubmitStage.DONE -> "Done"
+                        },
+                        fontWeight = FontWeight.Medium,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onExit) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
                         )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onExit) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                            )
-                        }
-                    },
-                )
-            }
+                    }
+                },
+            )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { inner ->
@@ -123,25 +116,24 @@ fun SubmitScreen(
                 )
 
                 SubmitStage.CAMERA_OPEN -> {
-                    if (cameraPermissionDenied) {
-                        CameraPermissionDenied(
-                            onRetry = {
-                                cameraPermissionDenied = false
-                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                    if (!launcherActive) {
+                        SourceChooserDialog(
+                            onPickCamera = {
+                                val uri = createTempImageUri(ctx)
+                                tempCameraUri = uri
+                                launcherActive = true
+                                cameraLauncher.launch(uri)
                             },
-                            onCancel = onExit,
-                        )
-                    } else if (cameraPermissionAsked) {
-                        CameraCapture(
-                            onCaptured = vm::onPhotoCaptured,
-                            onCancel = {
-                                if (state.restaurantId == null) onExit() else vm.cancelCamera()
+                            onPickGallery = {
+                                launcherActive = true
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                    ),
+                                )
                             },
+                            onDismiss = onExit,
                         )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
                     }
                 }
 
@@ -200,14 +192,29 @@ private fun ParsingView() {
 }
 
 @Composable
-private fun CameraPermissionDenied(onRetry: () -> Unit, onCancel: () -> Unit) {
+private fun SourceChooserDialog(
+    onPickCamera: () -> Unit,
+    onPickGallery: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text("Camera needed") },
-        text = {
-            Text("We need camera access to photograph the menu. You can grant it in settings or try again.")
+        onDismissRequest = onDismiss,
+        title = { Text("Add menu photo") },
+        text = { Text("How would you like to add a photo?") },
+        confirmButton = {
+            TextButton(onClick = onPickCamera) { Text("Take photo") }
         },
-        confirmButton = { TextButton(onClick = onRetry) { Text("Try again") } },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onPickGallery) { Text("From gallery") }
+        },
+    )
+}
+
+private fun createTempImageUri(context: Context): Uri {
+    val file = File.createTempFile("menu_", ".jpg", context.cacheDir)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file,
     )
 }

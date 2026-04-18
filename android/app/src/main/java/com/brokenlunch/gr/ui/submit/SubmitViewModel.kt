@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -170,6 +171,25 @@ class SubmitViewModel @Inject constructor(
             else if (s.restaurantId == null) SubmitStage.SELECTING_RESTAURANT
             else SubmitStage.CAMERA_OPEN,
         )
+    }
+
+    fun onImageSelected(uri: Uri) {
+        _state.value = _state.value.copy(stage = SubmitStage.PARSING, error = null)
+        viewModelScope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }.getOrNull()
+            }
+            if (bytes == null || bytes.isEmpty()) {
+                _state.value = _state.value.copy(
+                    stage = SubmitStage.CAMERA_OPEN,
+                    error = "Couldn't read the selected image",
+                )
+                return@launch
+            }
+            onPhotoCaptured(bytes)
+        }
     }
 
     fun onPhotoCaptured(rawJpegBytes: ByteArray) {
