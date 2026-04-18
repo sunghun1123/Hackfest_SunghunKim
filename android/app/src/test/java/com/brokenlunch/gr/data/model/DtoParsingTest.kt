@@ -86,7 +86,6 @@ class DtoParsingTest {
               "google_rating": 4.5,
               "app_rating": 4.2,
               "rating_count": 23,
-              "hours": { "monday": "11:00-21:00" },
               "menu": {
                 "survive": [
                   {
@@ -111,7 +110,6 @@ class DtoParsingTest {
         val parsed = adapter.fromJson(json)!!
 
         assertEquals("Pita House", parsed.name)
-        assertEquals("11:00-21:00", parsed.hours?.get("monday"))
         assertEquals(1, parsed.menu.survive.size)
         assertTrue(parsed.menu.costEffective.isEmpty())
         assertEquals(VerificationStatus.HUMAN_VERIFIED, parsed.menu.survive[0].verificationStatus)

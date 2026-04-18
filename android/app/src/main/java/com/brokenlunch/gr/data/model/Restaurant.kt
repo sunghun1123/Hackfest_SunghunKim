@@ -44,7 +44,6 @@ data class RestaurantDetail(
     @Json(name = "google_rating") val googleRating: Double?,
     @Json(name = "app_rating") val appRating: Double?,
     @Json(name = "rating_count") val ratingCount: Int,
-    @Json(name = "hours") val hours: Map<String, String>?,
     @Json(name = "menu") val menu: MenuByTier,
 )
 
