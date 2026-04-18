@@ -1,0 +1,13 @@
+# Copy to `local.properties` and fill in values. local.properties is gitignored.
+
+# Path to your Android SDK (Android Studio sets this automatically on first open).
+sdk.dir=C\:\\Users\\aa\\AppData\\Local\\Android\\Sdk
+
+# Google Maps SDK / Places API key.
+MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY_HERE
+
+# Backend base URL.
+# - Android emulator: http://10.0.2.2:8000/
+# - Physical device on same Wi-Fi: http://<your-pc-lan-ip>:8000/
+# - Production: https://broken-lunch-gr.ondigitalocean.app/
+BACKEND_URL=http://10.0.2.2:8000/

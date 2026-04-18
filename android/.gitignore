@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+captures/
+*.apk
+*.aab
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+local.properties
+
+# Kotlin
+.kotlin/
+kotlin-js-store/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# KSP / generated
+app/schemas/
