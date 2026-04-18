@@ -42,6 +42,12 @@ object NetworkModule {
         loggingInterceptor: HttpLoggingInterceptor,
     ): OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(deviceIdInterceptor)
+        .addInterceptor { chain ->
+            val req = chain.request().newBuilder()
+                .header("ngrok-skip-browser-warning", "true")
+                .build()
+            chain.proceed(req)
+        }
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)  // Gemini parsing can be slow
