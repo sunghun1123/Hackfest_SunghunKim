@@ -65,6 +65,7 @@ import com.brokenlunch.gr.ui.theme.LuxuryText
 import com.brokenlunch.gr.ui.theme.SurviveBg
 import com.brokenlunch.gr.ui.theme.SurviveBorder
 import com.brokenlunch.gr.ui.theme.SurviveText
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.clustering.ClusterItem
@@ -75,6 +76,7 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.clustering.Clustering
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.launch
 
 private class RestaurantClusterItem(val r: RestaurantNearby) : ClusterItem {
     private val pos = LatLng(r.lat, r.lng)
@@ -207,6 +209,7 @@ private fun MapContent(
     padding: PaddingValues,
 ) {
     val items = remember(restaurants) { restaurants.map { RestaurantClusterItem(it) } }
+    val scope = rememberCoroutineScope()
     GoogleMap(
         cameraPositionState = cameraState,
         properties = MapProperties(isMyLocationEnabled = false),
@@ -221,6 +224,16 @@ private fun MapContent(
         if (restaurants.size > 50) {
             Clustering(
                 items = items,
+                onClusterClick = { cluster ->
+                    val newZoom = (cameraState.position.zoom + 2f).coerceAtMost(20f)
+                    scope.launch {
+                        cameraState.animate(
+                            CameraUpdateFactory.newLatLngZoom(cluster.position, newZoom),
+                            durationMs = 400,
+                        )
+                    }
+                    true
+                },
                 onClusterItemClick = { item ->
                     onClick(item.r.id)
                     true
