@@ -1,7 +1,6 @@
 package com.brokenlunch.gr.data.model
 
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -10,9 +9,7 @@ import org.junit.Test
 
 class DtoParsingTest {
 
-    private val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
+    private val moshi: Moshi = Moshi.Builder().build()
 
     @Test
     fun parsesNearbyResponseWithBothPopulatedAndEmpty() {

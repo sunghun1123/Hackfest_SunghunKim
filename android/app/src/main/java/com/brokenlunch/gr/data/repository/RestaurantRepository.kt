@@ -1,9 +1,11 @@
 package com.brokenlunch.gr.data.repository
 
+import com.brokenlunch.gr.data.ApiResult
 import com.brokenlunch.gr.data.api.BrokenLunchApi
 import com.brokenlunch.gr.data.model.NearbyResponse
 import com.brokenlunch.gr.data.model.RestaurantDetail
 import com.brokenlunch.gr.data.model.Tier
+import com.brokenlunch.gr.data.safeApiCall
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +21,7 @@ class RestaurantRepository @Inject constructor(
         verifiedOnly: Boolean = false,
         includeEmpty: Boolean = true,
         limit: Int = 100,
-    ): Result<NearbyResponse> = runCatching {
+    ): ApiResult<NearbyResponse> = safeApiCall {
         api.getNearby(
             lat = lat,
             lng = lng,
@@ -31,7 +33,7 @@ class RestaurantRepository @Inject constructor(
         )
     }
 
-    suspend fun detail(id: String): Result<RestaurantDetail> = runCatching {
+    suspend fun detail(id: String): ApiResult<RestaurantDetail> = safeApiCall {
         api.getRestaurant(id)
     }
 
