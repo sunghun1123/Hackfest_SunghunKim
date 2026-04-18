@@ -3,8 +3,8 @@ package com.brokenlunch.gr.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,16 +53,15 @@ fun VerificationBadge(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .height(16.dp)
             .clip(RoundedCornerShape(999.dp))
             .background(bg)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = "$label price",
             tint = fg,
-            modifier = Modifier.height(10.dp),
+            modifier = Modifier.size(10.dp),
         )
         Spacer(Modifier.width(3.dp))
         Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = fg)

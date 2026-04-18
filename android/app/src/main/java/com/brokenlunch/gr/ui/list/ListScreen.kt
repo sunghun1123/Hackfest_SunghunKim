@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +40,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -255,23 +255,26 @@ private fun MenuItemRow(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(r.name, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Text(
-                text = "${menu.name} · ${formatDistanceMeters(r.distanceM)}",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${menu.name} · ${formatDistanceMeters(r.distanceM)}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(6.dp))
+                VerificationBadge(menu.verificationStatus)
+            }
         }
         Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = formatPriceCents(menu.priceCents),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = tierText(tier),
-            )
-            Spacer(Modifier.height(2.dp))
-            VerificationBadge(menu.verificationStatus)
-        }
+        Text(
+            text = formatPriceCents(menu.priceCents),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = tierText(tier),
+        )
     }
 }
 
