@@ -71,7 +71,8 @@ class MenuItem(Base):
         CheckConstraint("price_cents > 0", name="check_price_positive"),
         CheckConstraint("price_cents <= 1500", name="check_price_in_scope"),
         CheckConstraint(
-            "source IN ('gemini_web', 'gemini_photo', 'user_manual', 'seed', 'places_api')",
+            "source IN ('gemini_web', 'gemini_photo', 'user_manual', 'seed', 'places_api', "
+            "'gemini_screenshot', 'gemini_places_photo', 'gemini_pdf', 'gemini_yelp')",
             name="check_source",
         ),
         CheckConstraint(
