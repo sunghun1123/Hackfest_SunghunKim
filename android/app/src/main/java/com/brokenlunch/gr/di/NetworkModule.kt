@@ -44,7 +44,7 @@ object NetworkModule {
         .addInterceptor(deviceIdInterceptor)
         .addInterceptor(loggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)  // Gemini parsing can be slow
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
