@@ -140,7 +140,11 @@ fun BrokenLunchNavHost(
                 )
             }
             composable(Routes.PROFILE) { ProfileScreen() }
-            composable(Routes.RECOMMEND) { RecommendScreen() }
+            composable(Routes.RECOMMEND) {
+                RecommendScreen(
+                    onRestaurantClick = { id -> navController.navigate(Routes.detail(id)) },
+                )
+            }
         }
     }
 }
